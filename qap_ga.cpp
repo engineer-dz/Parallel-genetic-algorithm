@@ -434,12 +434,13 @@ int main(int argc, char* argv[]){
 
 			}
 			else{
-				std::cout<<"Problem while opening the data file.\n";
+				std::cout<<"Problem while opening the data file " << argv[1] << ".\n";
 				return 2;
 			}
 		}
 		else{
-			std::cout<<"Please specify a data file to open.\n";
+			std::cout<<"Please specify a data file to open. Usage:\n";
+			std::cout<<"./qap_ga.out file.dat\n";
 			return 1;
 		}
 		return 0;
