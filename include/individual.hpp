@@ -29,17 +29,17 @@ public:
 	// WARNING: Evaluation isn't included in other functions, so each time
 	// the Individual is altered (crossover, mutation, swap etc.) we should ensure
 	// the its fitness is updated afterwards
-	void evaluate_trace(std::vector<double>, std::vector<double>); // Evaluate the objective function
+	void evaluate_trace(const std::vector<double>&, const std::vector<double>&); // Evaluate the objective function
 
-	void evaluate_original(std::vector<double>, std::vector<double>); // Evaluate the objective function
+	void evaluate_original(const std::vector<double>&, const std::vector<double>&); // Evaluate the objective function
 
 	void mutate(std::random_device&); // Mutation operator: randomly swap two positions
 
 	void swap(int, int, std::vector<int> &); // Swap two predefined positions
 
-	void heuristic_2opt(std::vector<double>, std::vector<double>); // 2-opt heuristic
+	void heuristic_2opt(const std::vector<double>&, const std::vector<double>&); // 2-opt heuristic
 
-	Individual crossover(Individual&, std::random_device&); // Crossover with another individual to get an Offspring
+	Individual crossover(const Individual&, std::random_device&); // Crossover with another individual to get an Offspring
 
 	void print_permutation(); // Print the permutation vector
 

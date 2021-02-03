@@ -23,7 +23,7 @@ Individual::Individual(int n, std::random_device &r)
 		permutation.push_back(i);
 	std::shuffle(permutation.begin(), permutation.end(), g); // We randomly permutate the positions
 	construct_matrix(); // For the matrix
-	fitness = 0; // We initialize the fitness; Should we compute it here?
+	fitness = 0; // We initialize the fitness
 }
 
 
@@ -34,17 +34,14 @@ Individual::Individual(std::vector<int> p)
 	N = p.size(); // We set the size
 	permutation = p;
 	construct_matrix();
+	fitness = 0;	// Should be initialized anyway, but 0?
 }
 
 
 // Build the permutation matrix X from the permutation
 void Individual::construct_matrix()
 {
-	X.reserve(N*N);
-	std::fill(X.begin(), X.end(), 0); // We fill the matrix with zeros at first
-	for(int i = 0; i < N; i++)
-		for(int j = 0; j < N; j++)
-			X.push_back(0);
+	X = std::vector<double>(N*N, 0);	// We fill the matrix with zeros at first
 
 	int j;
 	// We update the components that will be 1
@@ -59,7 +56,7 @@ void Individual::construct_matrix()
 // the Individual is altered (crossover, mutation, swap etc.) we should ensure
 // the its fitness is updated afterwards
 // Evaluate the objective function
-void Individual::evaluate_trace(std::vector<double> F, std::vector<double> D)
+void Individual::evaluate_trace(const std::vector<double> &F, const std::vector<double> &D)
 {
 	std::vector<double> A; // Will save F*X
 	std::vector<double> B; // Will save X*D
@@ -73,9 +70,11 @@ void Individual::evaluate_trace(std::vector<double> F, std::vector<double> D)
 	fitness = mat_trace(N, B); // The value of the objective function
 }
 
+
 // Evaluate the objective function
-void Individual::evaluate_original(std::vector<double> F, std::vector<double> D){
-	double tmp;
+void Individual::evaluate_original(const std::vector<double> &F, const std::vector<double> &D)
+{
+	double tmp = 0;
 	for(int i = 0; i < N; i++){
 		for(int j = 0; j < N; j++){
 			tmp += F[i*N + j]*D[permutation[i]*N + permutation[j]];
@@ -95,7 +94,7 @@ void Individual::mutate(std::random_device &r)
 	// We get the two positions randomly
 	int position1 = distrib1(g);
 	int position2 = distrib2(g);
-	// We make sure they are not the same
+	// We make sure they are not the same and simulate a sampling over {0, ..., position1-1} U {position1+1, ..., N-1}
 	if (position2 >= position1)
 		position2 = position2 + 1;
 	// The swapping of the positions in the permutation
@@ -113,10 +112,10 @@ void Individual::mutate(std::random_device &r)
 
 
 // Crossover operator between the Individual and a second one; produces an offspring. One Point Crossover (OPX)
-Individual Individual::crossover(Individual& Individual2, std::random_device &r)
+Individual Individual::crossover(const Individual& Individual2, std::random_device &r)
 {
 	std::mt19937 g(r());
-	std::uniform_int_distribution<> distrib(0, N - 2);// distribution of the cross
+	std::uniform_int_distribution<> distrib(0, N - 2);// distribution of the cross, cannot be the last element, else there is no crossover
 	std::uniform_int_distribution<> binary(0,1); // which Individual will be the first parent?
 
 	int site = distrib(g); // The crossing position in the permutation vector
@@ -144,9 +143,8 @@ Individual Individual::crossover(Individual& Individual2, std::random_device &r)
 	// The second half will be completed by the second parent
 	for(int i = 0; i < N; i++)
 		// We check that the value isn't already in the offspring vector
-		if( std::find(offspring.begin(), offspring.end(), Parent2[i]) == std::end(offspring) ){
+		if( std::find(offspring.begin(), offspring.end(), Parent2[i]) == std::end(offspring) )
 			offspring.push_back(Parent2[i]);
-		}
 
 	Individual Offspring(offspring); // We create an new individual from the resulting permutation vector
 	return Offspring;
@@ -170,22 +168,22 @@ void Individual::swap(int i, int j, std::vector<int> &swap_perm)
 
 // 2-opt heuristic: We keep swapping all possible combinations of two positions
 // until we exhaust all possibilities, while keeping track of the Best solution found
-void Individual::heuristic_2opt(std::vector<double> D, std::vector<double> F)
+void Individual::heuristic_2opt(const std::vector<double> &D, const std::vector<double> &F)
 {
 	// We create a Best individual to keep track of the best solution
 	Individual Best(permutation);
-	Best.evaluate_trace(F, D);
+	Best.evaluate_trace(F, D);	// Evaluate fitness
 	// For each position i 
 	for(int i = 0; i < N; i++){
-		// We permute it with another position j
+		// We swap it with another position j
 		for(int j = i + 1; j < N; j++){
-			std::vector<int> v; //This vector will contain the swapping
-			Best.swap(i, j, v);
+			std::vector<int> v; // This vector will contain the swapping
+			Best.swap(i, j, v);	// v is set with the swapping
 			Individual Swapped(v); // Resulting individual
-			Swapped.evaluate_trace(F, D);
+			Swapped.evaluate_trace(F, D);	// Evaluate fitness
 			// We update Best whenever we find a better solution
 			if(Swapped.fitness < Best.fitness){
-				Best = Swapped;
+				Best = Swapped;	// The affectation is shallow, maybe create an assignment operator in the class
 				// We reset the positions
 				i = 0;
 				j = i + 1;
@@ -204,7 +202,7 @@ void Individual::print_permutation()
 {
 	for(int i = 0; i < N; i++)
 		std::cout << permutation[i] << "  ";
-	std::cout << "\n";
+	std::cout << std::endl;
 }
 
 
@@ -214,6 +212,6 @@ void Individual::print_matrix()
 	for(int i = 0; i < N; i++){
 		for(int j = 0; j < N; j++)
 			std::cout << X[N*i + j] << " ";
-		std::cout << "\n";
+		std::cout << std::endl;
 	}
 }
