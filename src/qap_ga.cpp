@@ -77,10 +77,10 @@ int main(int argc, char* argv[])
 {
 	float time;
 	clock_t t1, t2;
-	t1= clock();
+	t1 = clock();
 
 	std::random_device r;
-	if(argc>= 2)
+	if(argc >= 2)
 	{
 		std::ifstream file_dat;
 		file_dat.open(argv[1]);
@@ -94,14 +94,14 @@ int main(int argc, char* argv[])
 			Population.reserve(pop_size);
 
 			Individual Best(N, r); // The Best solution
-	// WARNING: Evaluation isn't included in other functions, so each time
-	// the Individual is altered (crossover, mutation, swap etc.) we should ensure
-	// the its fitness is updated afterwards
+			// WARNING: Evaluation isn't included in other functions, so each time
+			// the Individual is altered (crossover, mutation, swap etc.) we should ensure
+			// the its fitness is updated afterwards
 			Best.evaluate_trace(F, D);
 
-			std::cout<<"Initialization of the Best individual:\n";
+			std::cout << "Initialization of the Best individual:\n";
 			Best.print_permutation();
-			std::cout<<"Fitness :" << Best.fitness<<"\n";
+			std::cout << "Fitness: " << Best.fitness << std::endl;
 			// We initialize the population
 			for(int i = 0; i < pop_size; i++){
 				Population.push_back(new Individual(N, r));
@@ -115,15 +115,18 @@ int main(int argc, char* argv[])
 			// Stopping criteria:
 			// 1. We reach the maximum number of generations OR
 			// 2. There have been a certain number of generations we haven't updated the Best solution
-			while( (generation < nb_gen) && (no_improvement < no_improvenment_max) ){
+			while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
+			{
 				generation++;
 				no_improvement++;
 				std::cout<<"==============================\n";
 				std::cout<<"Generation: "<<generation<<"\n";
+
 				for(int i = 0; i < Population.size(); i++){
 					std::mt19937 g(r());
 					double operator_probability;
 					operator_probability = U_distr(g); // Uniformly select a random real in [0, 1]
+
 					// 1. Crossover with a 60% probability
 					if(operator_probability < 0.6){
 						// We randomly select an individual from the population so it becomes the second Parent
@@ -136,15 +139,18 @@ int main(int argc, char* argv[])
 						if( Offspring.fitness <= Population[i]->fitness)
 							*Population[i] = Offspring;
 					}
+
 					operator_probability = U_distr(g); // Uniformly select a random real in [0, 1]
 					// 2. Mutation with a 60% probability
 					if(operator_probability < 0.1)
 						Population[i]->mutate(r);
+
 					// 3. Transposition? Check that, wasn't implemented
 					Population[i]->evaluate_trace(F, D);
 					// The infamous 2-opt heuristic to be applied on our individual
 					Population[i]->heuristic_2opt(F, D);
 					//std::cout<<"Value of the Loss function: " << Population[i]->fitness<<"\n";
+
 					// We update the Best solution if we find a better individual
 					if(Population[i]->fitness < Best.fitness){
 						std::cout<<"---------------- A new Best found\n";
@@ -158,6 +164,7 @@ int main(int argc, char* argv[])
 
 				}
 			}
+
 			t2= clock();
 			time= (float)(t2-t1)/CLOCKS_PER_SEC;
 
@@ -165,6 +172,7 @@ int main(int argc, char* argv[])
 			std::cout<<"Best solution found:\n";
 			Best.print_permutation();
 			std::cout<<"Fitness: " << Best.fitness << "\nExecution time: " << time << " s\nGeneration: " << best_generation << "\n";
+			
 			if(argc >= 3){
 				std::ifstream file_soln;
 				file_soln.open(argv[2]);
