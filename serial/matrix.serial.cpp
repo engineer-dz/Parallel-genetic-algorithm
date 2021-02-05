@@ -7,7 +7,7 @@
 #include <iostream>
 #include <fstream>
 
-#include "matrix.hpp"
+#include "matrix.serial.hpp"
 
 
 // Compute the transpose of a matrix

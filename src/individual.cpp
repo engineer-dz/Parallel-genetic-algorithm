@@ -5,49 +5,65 @@
 
 #include <iostream>
 #include <fstream>
+#include <cstring>
 
 #include "individual.hpp"
 #include "matrix.hpp"
 
 
-// Constructor that uses random permutation
+// Function that uses random permutation to create an Individual
 // n: size of the problem; how many locations are there?
-Individual::Individual(int n, std::random_device &r)
+void generate_Individual(Individual &I, int n)
 {
-	std::mt19937 g(r());
 	// We fix the size N
-	N = n;
-	permutation.reserve(N); 
-	// We first construct the vctor of all integers
-	for(int i = 0; i < N; i++)
-		permutation.push_back(i);
-	std::shuffle(permutation.begin(), permutation.end(), g); // We randomly permutate the positions
-	construct_matrix(); // For the matrix
-	fitness = 0; // We initialize the fitness
+	I.N = n;
+	I.permutation = (int*) std::calloc(n, sizeof(int));
+	// We first construct the vector of all integers
+	for(int i=0 ; i<n ;i++){
+		I.permutation[i]=i;
+	}
+
+	// shuffle
+	for (int i = n-1; i >= 0; i--){
+		//generate a random number [0, n-1]
+		int j = rand() % (i+1);
+
+		//swap the last element with element at random index
+		int temp = I.permutation[i];
+		I.permutation[i] = I.permutation[j];
+		I.permutation[j] = temp;
+	}
+	I.X = (double*) std::calloc(I.N*I.N, sizeof(double)); 
+	construct_matrix(I);
+	I.fitness = 0;
 }
 
-
-// Constructor that uses predefined permutation
+// Function that uses predefined permutation to create an Individual
 // p: permutation vector
-Individual::Individual(std::vector<int> p)
+void generate_Individual_noRandom(Individual &I, int *p, int n)
 {
-	N = p.size(); // We set the size
-	permutation = p;
-	construct_matrix();
-	fitness = 0;	// Should be initialized anyway, but 0?
+	I.N = n;
+	for(int i = 0; i < I.N; i++)
+		I.permutation[i] = p[i];
+	I.X = (double*) std::calloc(I.N*I.N, sizeof(double)); 
+	construct_matrix(I);
+	I.fitness = 0;
 }
 
-
-// Build the permutation matrix X from the permutation
-void Individual::construct_matrix()
+// Build the permutation matrix X from the permutation vector of I
+void construct_matrix(Individual &I)
 {
-	X = std::vector<double>(N*N, 0);	// We fill the matrix with zeros at first
+	for(int i = 0; i < I.N; i++){
+		for(int j = 0; j < I.N; j++){
+			I.X[i*I.N + j] = 0;
+		}
+	}
 
 	int j;
 	// We update the components that will be 1
-	for(int i = 0; i < N; i++){
-		j = permutation[i];
-		X[i*N + j] = 1;
+	for(int i = 0; i < I.N; i++){
+		j = I.permutation[i];
+		I.X[i*I.N + j] = 1;
 	}
 }
 
@@ -56,162 +72,189 @@ void Individual::construct_matrix()
 // the Individual is altered (crossover, mutation, swap etc.) we should ensure
 // the its fitness is updated afterwards
 // Evaluate the objective function
-void Individual::evaluate_trace(const std::vector<double> &F, const std::vector<double> &D)
+void evaluate_trace(Individual &I, const std::vector<double> &F, const std::vector<double> &D)
 {
+	// Do we change that to double*? I think yes
 	std::vector<double> A; // Will save F*X
 	std::vector<double> B; // Will save X*D
 	std::vector<double> C; // Will save Dt*Xt
 
-	seq_mat_mul_sdot(N, F, X, A); // A = F*X
-	seq_mat_mul_sdot(N, X, D, B); // B = X*D
-	mat_transpose(N, B, C); // C = (X*D)t
-	seq_mat_mul_sdot(N, A, C, B); // B = A*C
+	// We empty the vector
+	A.clear();
+	A.reserve(I.N*I.N);
+	B.clear();
+	B.reserve(I.N*I.N);
+	C.clear();
+	C.reserve(I.N*I.N);
 
-	fitness = mat_trace(N, B); // The value of the objective function
-}
-
-
-// Evaluate the objective function
-void Individual::evaluate_original(const std::vector<double> &F, const std::vector<double> &D)
-{
+	//seq_mat_mul_sdot(I.N, F, I.X, A); // A = F*X
 	double tmp = 0;
-	for(int i = 0; i < N; i++){
-		for(int j = 0; j < N; j++){
-			tmp += F[i*N + j]*D[permutation[i]*N + permutation[j]];
+
+	for (int i = 0; i < I.N; i++) {
+		for (int j = 0; j < I.N; j++) {
+			tmp = 0.0f;
+			for (int k = 0; k < I.N; k++) {
+				tmp += F[i*I.N+k] * I.X[k*I.N+j];
+			}
+			A[i*I.N+j] = tmp;
 		}
 	}
-	fitness = tmp;
+
+	tmp = 0;
+
+	//seq_mat_mul_sdot(I.N, I.X, D, B); // B = X*D
+	for (int i = 0; i < I.N; i++) {
+		for (int j = 0; j < I.N; j++) {
+			tmp = 0.0f;
+			for (int k = 0; k < I.N; k++) {
+				tmp += I.X[i*I.N+k] * D[k*I.N+j];
+			}
+			B[i*I.N+j] = tmp;
+		}
+	}
+
+	mat_transpose(I.N, B, C); // C = (X*D)t
+	seq_mat_mul_sdot(I.N, A, C, B); // B = A*C
+
+	I.fitness = mat_trace(I.N, B); // The value of the objective function
 }
 
+// Evaluate the objective function using the original formula, and a permutatio vector
+double evaluate_original(int* p, const int &n, const std::vector<double> &F, const std::vector<double> &D)
+{
+	double tmp = 0;
+	for(int i = 0; i < n; i++){
+		for(int j = 0; j < n; j++){
+			tmp += F[i*n + j]*D[p[i]*n + p[j]];
+		}
+	}
+	return tmp;
+}
 
 // Mutation operator: randomly swap two positions
-void Individual::mutate(std::random_device &r)
+void mutate(Individual &I)
 {
-	std::mt19937 g(r());
-	std::uniform_int_distribution<> distrib1(0, N - 1); // Uniform random distribution for the first position
-	std::uniform_int_distribution<> distrib2(0, N - 2); // Uniform random distribution for the second position
-
 	// We get the two positions randomly
-	int position1 = distrib1(g);
-	int position2 = distrib2(g);
+	int position1 = rand()%(I.N);
+	int position2 = rand()%(I.N - 1);
 	// We make sure they are not the same and simulate a sampling over {0, ..., position1-1} U {position1+1, ..., N-1}
 	if (position2 >= position1)
 		position2 = position2 + 1;
 	// The swapping of the positions in the permutation
-	int buffer = permutation[position1];
-	permutation[position1] = permutation[position2];
-	permutation[position2] = buffer;
+	int buffer = I.permutation[position1];
+	I.permutation[position1] = I.permutation[position2];
+	I.permutation[position2] = buffer;
 
 	// We rearrange the matrix
-	X[position1*N + permutation[position2]] = 0;
-	X[position2*N + permutation[position1]] = 0;
+	I.X[position1*I.N + I.permutation[position2]] = 0;
+	I.X[position2*I.N + I.permutation[position1]] = 0;
 
-	X[position1*N + permutation[position1]] = 1;
-	X[position2*N + permutation[position2]] = 1;
+	I.X[position1*I.N + I.permutation[position1]] = 1;
+	I.X[position2*I.N + I.permutation[position2]] = 1;
 }
 
-
-// Crossover operator between the Individual and a second one; produces an offspring. One Point Crossover (OPX)
-Individual Individual::crossover(const Individual& Individual2, std::random_device &r)
+// Crossover operator between two individuals; produces an Offspring. One Point Crossover (OPX) method.
+void crossover(const Individual& Individual1, const Individual& Individual2, Individual &Offspring)
 {
-	std::mt19937 g(r());
-	std::uniform_int_distribution<> distrib(0, N - 2);// distribution of the cross, cannot be the last element, else there is no crossover
-	std::uniform_int_distribution<> binary(0,1); // which Individual will be the first parent?
+	int site = rand()%(Individual1.N - 1); // The crossing position in the permutation vector
+	int bin = rand()%2; // Which Individual will be first?
+	Offspring.permutation = (int *) std::calloc(Individual1.N, sizeof(int));
 
-	int site = distrib(g); // The crossing position in the permutation vector
-	int bin = binary(g); // Which Individual will be first?
-	std::vector<int> offspring; // The resulting permutation vector
-
-	// The Parents' permutation vectors
-	std::vector<int> Parent1;
-	std::vector<int> Parent2;
 	// Assignement of the Parents
 	if(bin == 0){
-		Parent1 = permutation;
-		Parent2 = Individual2.permutation;
+		// The first half of the offspring will come from the first parent
+		for(int i = 0; i <= site; i++){
+			Offspring.permutation[i] = Individual1.permutation[i];
+		}
+
+		// The second half will be completed by the second parent
+		for(int i = 0; i < Individual1.N; i++)
+			// We check that the value isn't already in the offspring vector
+			if( std::find(Offspring.permutation + Offspring.N, Offspring.permutation + Offspring.N, Individual2.permutation[i]) != Offspring.permutation + Offspring.N )
+				Offspring.permutation[i] = Individual2.permutation[i];
 	}
 	else{
-		Parent1 = Individual2.permutation;
-		Parent2 = permutation;
+		// The first half of the offspring will come from the second parent
+		for(int i = 0; i <= site; i++){
+			Offspring.permutation[i] = Individual2.permutation[i];
+		}
+
+		// The second half will be completed by the first parent
+		for(int i = 0; i < Individual1.N; i++)
+			// We check that the value isn't already in the offspring vector
+			if( std::find(Offspring.permutation + Offspring.N, Offspring.permutation + Offspring.N, Individual1.permutation[i]) != Offspring.permutation + Offspring.N )
+				Offspring.permutation[i] = Individual1.permutation[i];
 	}
-
-	// The first half of the offspring will come from the first parent
-	for(int i = 0; i <= site; i++){
-		offspring.push_back(Parent1[i]);
-	}
-
-	// The second half will be completed by the second parent
-	for(int i = 0; i < N; i++)
-		// We check that the value isn't already in the offspring vector
-		if( std::find(offspring.begin(), offspring.end(), Parent2[i]) == std::end(offspring) )
-			offspring.push_back(Parent2[i]);
-
-	Individual Offspring(offspring); // We create an new individual from the resulting permutation vector
-	return Offspring;
+	Offspring.X = (double*) std::calloc(Individual1.N*Individual1.N, sizeof(double)); 
+	construct_matrix(Offspring);
 }
-
-
-// Swap two predefined positions to get a new permutation vector
-void Individual::swap(int i, int j, std::vector<int> &swap_perm)
-{
-	// We empty the resulting vector
-	swap_perm.clear();
-	swap_perm.reserve(N);
-	// We fill it t with the values of the permutation vector
-	for(int k = 0; k < N; k++)
-		swap_perm.push_back(permutation[k]);
-	// We permutate the two positions
-	swap_perm[i] = permutation[j];
-	swap_perm[j] = permutation[i];
-}
-
 
 // 2-opt heuristic: We keep swapping all possible combinations of two positions
 // until we exhaust all possibilities, while keeping track of the Best solution found
-void Individual::heuristic_2opt(const std::vector<double> &D, const std::vector<double> &F)
+void heuristic_2opt(Individual &I, const std::vector<double> &D, const std::vector<double> &F)
 {
 	// We create a Best individual to keep track of the best solution
-	Individual Best(permutation);
-	Best.evaluate_trace(F, D);	// Evaluate fitness
 	// For each position i 
-	for(int i = 0; i < N; i++){
+	for(int i = 0; i < I.N; i++){
 		// We swap it with another position j
-		for(int j = i + 1; j < N; j++){
-			std::vector<int> v; // This vector will contain the swapping
-			Best.swap(i, j, v);	// v is set with the swapping
-			Individual Swapped(v); // Resulting individual
-			Swapped.evaluate_trace(F, D);	// Evaluate fitness
-			// We update Best whenever we find a better solution
-			if(Swapped.fitness < Best.fitness){
-				Best = Swapped;	// The affectation is shallow, maybe create an assignment operator in the class
+		for(int j = i + 1; j < I.N; j++){
+			int *v = (int *) calloc(I.N, sizeof(int));; // This vector will contain the swapping
+
+			// v is set with the swapping
+			for(int k = 0; k < I.N; k++){
+				v[k] = I.permutation[k];
+			}
+
+			// We permutate the two positions
+			v[i] = I.permutation[j];
+			v[j] = I.permutation[i];
+
+			// We update the individual whenever we find a better solution
+			if(evaluate_original(v, I.N, F, D) < I.fitness){
+				// We copy the content of the array in the permutation
+				for(int k = 0; k < I.N; k++)
+					I.permutation[k] = v[k];
+				construct_matrix(I);
+				evaluate_trace(I, F, D);
 				// We reset the positions
 				i = 0;
 				j = i + 1;
 			}
+			std::free(v);
 		}
 	}
-	// Updating the variables with those of Best
-	permutation = Best.permutation;
-	X = Best.X;
-	fitness = Best.fitness;
 }
 
-
 // Print the permutation vector
-void Individual::print_permutation()
+void print_permutation(const Individual &I)
 {
-	for(int i = 0; i < N; i++)
-		std::cout << permutation[i] << "  ";
+	for(int i = 0; i < I.N; i++)
+		std::cout << I.permutation[i] << "  ";
 	std::cout << std::endl;
 }
 
-
 // Print the permutation matrix
-void Individual::print_matrix()
+void print_matrix(const Individual &I)
 {
-	for(int i = 0; i < N; i++){
-		for(int j = 0; j < N; j++)
-			std::cout << X[N*i + j] << " ";
+	for(int i = 0; i < I.N; i++){
+		for(int j = 0; j < I.N; j++)
+			std::cout << I.X[I.N*i + j] << " ";
 		std::cout << std::endl;
 	}
+}
+
+// Copy the values from one individual to the other
+void copy(Individual &Dest, const Individual &Source){
+	for(int i = 0; i < Source.N; i++){
+		Dest.permutation[i] = Source.permutation[i];
+		for(int j = 0; j < Source.N; j ++){
+			Dest.X[i*Source.N + j] = Source.X[i*Source.N + j];
+		}
+	}
+	Dest.fitness = Source.fitness;
+}
+
+void delete_individual(Individual &I){
+	std::free(I.permutation);
+	std::free(I.X);
 }

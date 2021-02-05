@@ -6,8 +6,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "individual.hpp"
-#include "matrix.hpp"
+#include "individual.serial.hpp"
+#include "matrix.serial.hpp"
 
 
 // Constructor that uses random permutation

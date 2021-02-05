@@ -9,8 +9,8 @@
 #include <iostream>
 #include <fstream>
 
-#include "individual.hpp"
-#include "matrix.hpp"
+#include "individual.serial.hpp"
+#include "matrix.serial.hpp"
 
 #define pop_size 100
 #define nb_gen 20

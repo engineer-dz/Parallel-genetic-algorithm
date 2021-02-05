@@ -10,41 +10,25 @@
 #include <fstream>
 
 
-class Individual
+typedef struct Individual
 {
-private:
 	int N; // size of the permutation vector
-	std::vector<int> permutation; // permutation vector
-	std::vector<double> X; // permutation matrix representation
-	
-public:
+	int *permutation; // permutation vector
+	double *X; // permutation matrix representation
 	double fitness; // value of the objective function for this solution
+	
+} Individual;
 
-	Individual(int, std::random_device&); // Constructor that uses random permutation
-
-	Individual(std::vector<int>); // Constructor that uses predefined permutation
-
-	void construct_matrix(); // Build the permutation matrix X from the permutation
-
-	// WARNING: Evaluation isn't included in other functions, so each time
-	// the Individual is altered (crossover, mutation, swap etc.) we should ensure
-	// the its fitness is updated afterwards
-	void evaluate_trace(const std::vector<double>&, const std::vector<double>&); // Evaluate the objective function
-
-	void evaluate_original(const std::vector<double>&, const std::vector<double>&); // Evaluate the objective function
-
-	void mutate(std::random_device&); // Mutation operator: randomly swap two positions
-
-	void swap(int, int, std::vector<int> &); // Swap two predefined positions
-
-	void heuristic_2opt(const std::vector<double>&, const std::vector<double>&); // 2-opt heuristic
-
-	Individual crossover(const Individual&, std::random_device&); // Crossover with another individual to get an Offspring
-
-	void print_permutation(); // Print the permutation vector
-
-	void print_matrix(); // Print the permutation matrix
-};
-
-
+void generate_Individual(Individual &I, int n);
+void generate_Individual_noRandom(Individual &I, int *p, int n);
+void construct_matrix(Individual &I);
+void evaluate_trace(Individual &I, const std::vector<double> &F, const std::vector<double> &D);
+double evaluate_original(int* p, const int &n, const std::vector<double> &F, const std::vector<double> &D);
+void mutate(Individual &I);
+void crossover(const Individual& Individual1, const Individual& Individual2, Individual &Offspring);
+void heuristic_2opt(Individual &I, const std::vector<double> &D, const std::vector<double> &F);
+void print_permutation(const Individual &I);
+void print_matrix(const Individual &I);
+void copy(Individual &Dest, const Individual &Source);
+void delete_individual(Individual &I);
 #endif
