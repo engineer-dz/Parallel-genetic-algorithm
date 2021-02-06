@@ -124,8 +124,8 @@ int main(int argc, char* argv[])
 
 					// 1. Crossover with a 60% probability
 					if(operator_probability < 0.6){
-						// We randomly select an individual from the population so it becomes the second Parent
-						int ind = rand()%pop_size;
+						// We randomly select an individual from the population so it becomes the second Parent; it has to be different from from the first individual so we randomly select from pop_size - 1 individual
+						int ind = rand()%(pop_size - 1);
 						if(i <= ind) ind++; // We ensure we do not pick the first Parent
 						Individual Offspring;
 						// There is a possibility to get rid of the Offspring individual by just using the result vecteur in crossover
@@ -188,6 +188,7 @@ int main(int argc, char* argv[])
 						Individual Optimal;
 						//generate_Individual_noRandom(Optimal, optimal_permutation, Nsol);
 						Optimal.N = Nsol;
+						Optimal.permutation = (int *) calloc(N, sizeof(int));
 						for(int i = 0; i < Optimal.N; i++)
 							Optimal.permutation[i] = optimal_permutation[i];
 						Optimal.X = (double*) std::calloc(Optimal.N*Optimal.N, sizeof(double)); 
@@ -197,7 +198,7 @@ int main(int argc, char* argv[])
 						std::cout<<"Known optimal solution:\n";
 						print_permutation(Best);
 						std::cout << "Optimal value (in the file): " << Optimal_Value << "\n";
-						std::cout << "Optimal value (computed): " << Optimal.fitness << "\n";
+						std::cout << "Optimal value (found by the program): " << Best.fitness << "\n";
 						delete_individual(Optimal);
 					}
 					std::free(optimal_permutation);
