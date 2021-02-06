@@ -19,6 +19,7 @@ typedef struct Individual
 	
 } Individual;
 
+
 void generate_Individual(Individual &I, int n);
 void generate_Individual_noRandom(Individual &I, int *p, int n);
 void construct_matrix(Individual &I);
@@ -31,4 +32,6 @@ void print_permutation(const Individual &I);
 void print_matrix(const Individual &I);
 void copy(Individual &Dest, const Individual &Source);
 void delete_individual(Individual &I);
+
+
 #endif
