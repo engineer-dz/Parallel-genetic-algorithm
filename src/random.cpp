@@ -19,6 +19,7 @@ int rand_int(uint random, int n){
 	return random%n;
 }
 
+/*
 int main(int argc, char *argv[]){
 	srand(time(NULL));
 	uint seed = rand();
@@ -36,3 +37,4 @@ int main(int argc, char *argv[]){
 		std::cout<<std::endl;
 	}
 }
+*/

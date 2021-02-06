@@ -28,6 +28,7 @@ include_directories(include)
 
 # Ajoute répertoire contenant des définitions OpenCL étendues
 add_subdirectory(src)
+add_subdirectory(src_parallel)
 # add_subdirectory(include)
 # add_subdirectory(common)
 add_subdirectory(data)
