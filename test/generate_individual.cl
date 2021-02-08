@@ -14,7 +14,27 @@
 
 
 
+// Functions
+uint xorshift32(uint seed)
+{
+	uint x = seed;
+
+	x ^= x << 13;
+	x ^= x >> 17;
+	x ^= x << 5;
+
+	return x;
+}
+
+
+int rand_int(uint random, int n)
+{
+	return random % n;
+}
+
+
 // Struct definition
+/*
 typedef struct Individual
 {
     int N = NB_GENES;
@@ -112,13 +132,40 @@ double mat_trace(int N, double *A)
 
 	return tmp;
 }
+*/
 
 
 
 // Kernel
-__kernel void generate_individual(__global double *F, __global double *D, __global Individual *res, const int count)
+__kernel void permutation(__global int* d_permut_uninitialized, __global int *d_permutation, __global double *d_X)
 {
-    Individual I;
+    // d_X initialized with 0
+    int id_global = get_global_id(0);
+    int id_local = get_local_id(0);
+    int id_group = get_group_id(0);
+
+/*    // Shuffle to create the permutations
+    uint seed = id_global;
+    for (int i = NB_GENES-1; i >= 0; i--) {
+        seed = xorshift32(seed);
+        int j = rand_int(seed, i+1);
+
+        int tmp = d_permut_uninitialized[id_group * NB_GENES + i];
+        d_permut_uninitialized[id_group * NB_GENES + i]
+    }
+
+    int tmp_permut[NB_GENES];
+*/
+
+    // Set the permutation matrix when d_permutation is computed
+    int k = d_permutation[id_global];   // Get permutation as a local ID
+    // formula not correct
+    // id_group*NB_GENES*NB_GENES to get at the correct group
+    // id_local*NB_GENES + k the wanted local id
+    d_X[id_group*NB_GENES*NB_GENES + id_local*NB_GENES + k] = 1;     // Set the correct element to 1
+
+
+    /*Individual I;
     int n = I.N;
     int i = get_global_id(0);
     uint seed = (uint) i % 32;
@@ -147,4 +194,5 @@ __kernel void generate_individual(__global double *F, __global double *D, __glob
     // Write result in global memory
     if (i < count)
         res[i] = I;
+    */
 }

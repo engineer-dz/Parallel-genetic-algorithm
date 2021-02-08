@@ -100,10 +100,9 @@ int main(int argc, char* argv[])
 		if (file_dat.is_open())
 		{
 			srand(std::time(NULL));
-			std::vector<double> F(NB_GENES * NB_GENES, 1); // Flow matrix
-			std::vector<double> D(NB_GENES * NB_GENES, 1); // Distance matrix
-			//int N = open_file_dat(file_dat, F, D);
-			int N = NB_GENES;
+			std::vector<double> F(NB_GENES * NB_GENES); // Flow matrix
+			std::vector<double> D(NB_GENES * NB_GENES); // Distance matrix
+			int N = open_file_dat(file_dat, F, D);
 /*
 			std::cout << "Initialization of the Best individual:\n";
 			Individual Best;
@@ -115,15 +114,16 @@ int main(int argc, char* argv[])
 			// the Individual is altered (crossover, mutation, swap etc.) we should ensure
 			// the its fitness is updated afterwards*/
 
-			std::vector<double> Population(pop_size); // The population 
-
+			std::vector<int> permutation(NB_GENES); // 1 permutation (after that, pop_size * NB_GENES)
+			std::vector<double> X(NB_GENES * NB_GENES);	// 1 permutation matrix
+			double fitness = 0;	// fitness of the individual
 
 
 			// We initialize the population
 			// ------------------------------------------------------------------                        
 	    	// Create a context and queue                                                                
 		    // ------------------------------------------------------------------                        
-			cl::Buffer d_F, d_D, d_Population;
+			cl::Buffer d_F, d_D, d_permutation, d_X;
 			try                                                                                          
     		{                                                                                            
 		        cl_uint deviceIndex = 1;
@@ -155,36 +155,39 @@ int main(int argc, char* argv[])
 		        cl::Context context(chosen_device);
 
 		        // Load in kernel source, creating a program object for the context
-		        cl::Program program(context, util::loadProgram("test.cl"), true);
+		        cl::Program program(context, util::loadProgram("generate_individual.cl"), true);
 		        // Get the command queue
 		        cl::CommandQueue queue(context);
 
-				auto generate_individual = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, int>(program, "generate_individual");
+				auto generate_individual = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "generate_individual");
 
 				// ------------------------------------------------------------------
 	  	        // Setup the buffers and write them into global memory
 		        // ------------------------------------------------------------------
 				d_F = cl::Buffer(context, F.begin(), F.end(), true);
 				d_D = cl::Buffer(context, D.begin(), D.end(), true);
-				d_Population = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
+				d_permutation = cl::Buffer(context, CL_MEM_WRITE_ONLY, NB_GENES * sizeof(int));
+				d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, NB_GENES * NB_GENES * sizeof(double));
 
 				// ------------------------------------------------------------------
 		        // OpenCL initialization of the population
 		        // ------------------------------------------------------------------
 
 		        // Create the compute kernel from the program
-				generate_individual(cl::EnqueueArgs(queue, cl::NDRange(pop_size)), d_F, d_D, d_Population, pop_size);
+				generate_individual(cl::EnqueueArgs(queue, cl::NDRange(pop_size)), d_F, d_D, d_permutation, d_X);
 				
 				queue.finish();
 
-				cl::copy(queue, d_Population, Population.begin(), Population.end());
+				cl::copy(queue, d_permutation, permutation.begin(), permutation.end());
+				cl::copy(queue, d_X, X.begin(), X.end());
 			}
 			catch (cl::Error err) {
 				std::cout << "Exception\n";
 			    std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
  			}
 
-
+			for (int i = 0; i < NB_GENES; i++)
+				std::cout << permutation[i] << std::endl;
 
 			// for(int i = 0; i < pop_size; i++){
 			// 	generate_Individual(Population[i], N);
