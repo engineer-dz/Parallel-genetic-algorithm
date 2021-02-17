@@ -35,7 +35,7 @@ int rand_int(uint random, int n)
 
 
 // Kernel
-__kernel void generate_individual(__global double *d_F, __global double *d_D, __global int *d_permutation, __global double *d_X, __global double *d_fitness)
+__kernel void generate_individual(__constant double *d_F, __constant double *d_D, __global int *d_permutation, __global double *d_X, __global double *d_fitness)
 {
     // d_X initialized with 0
     // We assume d_permutation is initialized in the CPU
@@ -114,5 +114,5 @@ __kernel void generate_individual(__global double *d_F, __global double *d_D, __
 		trace += B[i*NB_GENES + i];
     }
 
-    d_fitness[id_global] = trace;
+    d_fitness[id_group] = trace;
 }
