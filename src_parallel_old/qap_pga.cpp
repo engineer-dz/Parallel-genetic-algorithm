@@ -4,10 +4,6 @@
 #define __CL_ENABLE_EXCEPTIONS
 #define NB_GENES 26
 
-#define pop_size 10
-#define nb_gen 20
-#define no_improvenment_max 5
-
 #include "cl.hpp"
 
 #include "util.hpp"
@@ -33,6 +29,10 @@
 
 #include <err_code.h>
 
+
+#define pop_size 100
+#define nb_gen 20
+#define no_improvenment_max 5
 
 
 // Function to open a data file of the qaplib 
@@ -100,10 +100,11 @@ int main(int argc, char* argv[])
 		if (file_dat.is_open())
 		{
 			srand(std::time(NULL));
-			std::vector<double> F(NB_GENES * NB_GENES); // Flow matrix
-			std::vector<double> D(NB_GENES * NB_GENES); // Distance matrix
-			int N = open_file_dat(file_dat, F, D);
-
+			std::vector<double> F(NB_GENES * NB_GENES, 1); // Flow matrix
+			std::vector<double> D(NB_GENES * NB_GENES, 1); // Distance matrix
+			//int N = open_file_dat(file_dat, F, D);
+			int N = NB_GENES;
+/*
 			std::cout << "Initialization of the Best individual:\n";
 			Individual Best;
 			generate_Individual(Best, N);; // The Best solution
@@ -112,133 +113,83 @@ int main(int argc, char* argv[])
 			std::cout << "Fitness: " << Best.fitness << std::endl;
 			// WARNING: Evaluation isn't included in other functions, so each time
 			// the Individual is altered (crossover, mutation, swap etc.) we should ensure
-			// the its fitness is updated afterwards
+			// the its fitness is updated afterwards*/
 
-			std::vector<int> permutation(NB_GENES * pop_size); // 1 permutation (after that, pop_size * NB_GENES)
-			std::vector<double> X(NB_GENES * NB_GENES * pop_size, 0);	// 1 permutation matrix
-			std::vector<double> fitness(pop_size);	// fitness of the individual
+			std::vector<double> Population(pop_size); // The population 
 
-			// Initialization of the permutations
-			for (int i = 0; i < pop_size; i++) {
-				for (int j = 0; j < NB_GENES; j++) {
-					permutation[i*NB_GENES + j] = j;
-				}
-				if (i < pop_size)
-					std::random_shuffle(permutation.begin() + i*NB_GENES, permutation.begin() + i*NB_GENES + NB_GENES - 1);
-			}
-
-			// for (int i = 0; i < NB_GENES; i++)
-			// 	std::cout << permutation[i] << std::endl;
 
 
 			// We initialize the population
 			// ------------------------------------------------------------------                        
-			// Create a context and queue                                                                
-			// ------------------------------------------------------------------                        
-			cl::Buffer d_F, d_D, d_permutation, d_X, d_fitness;
+	    	// Create a context and queue                                                                
+		    // ------------------------------------------------------------------                        
+			cl::Buffer d_F, d_D, d_Population;
 			try                                                                                          
-			{                                                                                            
-				cl_uint deviceIndex = 0;
-				parseArguments(argc, argv, &deviceIndex);
+    		{                                                                                            
+		        cl_uint deviceIndex = 1;
+		        parseArguments(argc, argv, &deviceIndex);
 
-				// Get list of devices
-				std::vector<cl::Device> devices;
-				// Insert devices from each platform in devices
-				// & return the size of devices (number of devices)
-				unsigned numDevices = getDeviceList(devices);
+		        // Get list of devices
+		        std::vector<cl::Device> devices;
+		        // Insert devices from each platform in devices
+		        // & return the size of devices (number of devices)
+		        unsigned numDevices = getDeviceList(devices);
 
-				// Check device index in range
-				if (deviceIndex >= numDevices)
-				{
-					std::cout << "Invalid device index (try '--list')\n";
-					return EXIT_FAILURE;
-				}
+		        // Check device index in range
+		        if (deviceIndex >= numDevices)
+		        {
+		            std::cout << "Invalid device index (try '--list')\n";
+		            return EXIT_FAILURE;
+		        }
 
-				// Choose my device
-				cl::Device device = devices[deviceIndex];
+		        // Choose my device
+		        cl::Device device = devices[deviceIndex];
 
-				std::string name;
-				getDeviceName(device, name);
-				std::cout << "\nUsing OpenCL device: " << name << "\n";
+		        std::string name;
+		        getDeviceName(device, name);
+		        std::cout << "\nUsing OpenCL device: " << name << "\n";
 
-				// Creation of the context with the chosen device
-				std::vector<cl::Device> chosen_device;
-				chosen_device.push_back(device);
-				cl::Context context(chosen_device);
+		        // Creation of the context with the chosen device
+		        std::vector<cl::Device> chosen_device;
+		        chosen_device.push_back(device);
+		        cl::Context context(chosen_device);
 
-				// Load in kernel source, creating a program object for the context
-				cl::Program program(context, util::loadProgram("generate_individual.cl"), true);
-				// Get the command queue
-				cl::CommandQueue queue(context);
+		        // Load in kernel source, creating a program object for the context
+		        cl::Program program(context, util::loadProgram("test.cl"), true);
+		        // Get the command queue
+		        cl::CommandQueue queue(context);
 
-				auto generate_individual = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "generate_individual");
+				auto generate_individual = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, int>(program, "generate_individual");
 
 				// ------------------------------------------------------------------
-				// Setup the buffers and write them into global memory
-				// ------------------------------------------------------------------
+	  	        // Setup the buffers and write them into global memory
+		        // ------------------------------------------------------------------
 				d_F = cl::Buffer(context, F.begin(), F.end(), true);
 				d_D = cl::Buffer(context, D.begin(), D.end(), true);
-				d_permutation = cl::Buffer(context, permutation.begin(), permutation.end(), true);
-				d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * NB_GENES * sizeof(double));
-				d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
+				d_Population = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
 
 				// ------------------------------------------------------------------
-				// OpenCL initialization of the population
-				// ------------------------------------------------------------------
+		        // OpenCL initialization of the population
+		        // ------------------------------------------------------------------
+
+		        // Create the compute kernel from the program
+				generate_individual(cl::EnqueueArgs(queue, cl::NDRange(pop_size)), d_F, d_D, d_Population, pop_size);
 				
-				// Defining gloabl dimmensions (global, size of the whole problem space) and local dimensions (local, size of one workgroup)
-				cl::NDRange global(pop_size*NB_GENES);
-				cl::NDRange local(NB_GENES);
-
-				// Create the compute kernel from the program
-				// // Don't forget the local and global sizes arguments
-				generate_individual(cl::EnqueueArgs(queue, global, local), d_F, d_D, d_permutation, d_X, d_fitness);
-
 				queue.finish();
 
-				cl::copy(queue, d_X, X.begin(), X.end());
-				cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
+				cl::copy(queue, d_Population, Population.begin(), Population.end());
 			}
 			catch (cl::Error err) {
 				std::cout << "Exception\n";
-				std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
-			}
-
-			/*
-			std::cout << "Affichage des résultats" << std::endl;
-			for(int ind = 0; ind < pop_size ; ind++){
-				 for (int i = 0; i < NB_GENES; i++)
-					std::cout << permutation[ind*NB_GENES + i] << " ";
-				 std::cout << std::endl;
-
-				 for (int i = 0; i < NB_GENES; i++) {
-					for (int j = 0; j < NB_GENES; j++) {
-						std::cout << X[ind*NB_GENES*NB_GENES + i * NB_GENES + j] << " ";
-					}
-					std::cout << std::endl;
-				 }
-				std::cout << "fitness: " << fitness[ind] << std::endl;
-			}
-			*/
+			    std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
+ 			}
 
 
-			// Vector population
-			std::vector<Individual> Population(pop_size);
 
-			for (int j = 0; j < pop_size; j++) {
-				Individual I;
-				I.N = NB_GENES;
-				for (int i = 0; i < NB_GENES; i++)
-					I.permutation[i] = permutation[j*NB_GENES + i];
-				for (int i = 0; i < NB_GENES * NB_GENES; i++)
-					I.X[i] = X[j*NB_GENES*NB_GENES + i];
-				//I.fitness = fitness[j];
-				evaluate_trace(I, F, D);
-				std::cout << "GPU fitness: " << fitness[j] << std::endl;
-				std::cout << "evaluated fitness: " << I.fitness << std::endl;
-				Population[j] = I;
-			}
-
+			// for(int i = 0; i < pop_size; i++){
+			// 	generate_Individual(Population[i], N);
+			// 	evaluate_trace(Population[i], F, D);
+			// }
 
 			int generation = 0; // Number of generations
 			int no_improvement = 0; // Number of generations since the last time Best was updated
@@ -247,7 +198,7 @@ int main(int argc, char* argv[])
 			// Stopping criteria:
 			// 1. We reach the maximum number of generations OR
 			// 2. There have been a certain number of generations we haven't updated the Best solution
-			while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
+			/*while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
 			{
 				generation++;
 				no_improvement++;
@@ -294,12 +245,12 @@ int main(int argc, char* argv[])
 					}
 
 				}
-			}
+			}*/
 
 
 			t2= clock();
 			time= (float)(t2-t1)/CLOCKS_PER_SEC;
-
+/*
 			std::cout<<"======================================== Terminated ======================================\n";
 			std::cout<<"Best solution found:\n";
 			print_permutation(Best);
@@ -332,7 +283,7 @@ int main(int argc, char* argv[])
 					}
 					std::free(optimal_permutation);
 				}
-			}
+			}*/
 		}
 		else{
 			std::cout<<"Problem while opening the data file " << argv[1] << ".\n";
