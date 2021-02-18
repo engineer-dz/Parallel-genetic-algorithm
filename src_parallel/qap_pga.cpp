@@ -33,8 +33,6 @@
 
 #include <err_code.h>
 
-
-
 // Function to open a data file of the qaplib 
 // https://www.opt.math.tugraz.at/qaplib/inst.html
 // Flow will contain the flow matrix and Distance the distance matrix, 
@@ -87,6 +85,48 @@ int open_file_soln(std::ifstream &file_soln, double &Value, int *Solution)
 	return N;
 }
 
+// We test if the GPU produced individuals are OK (not empty for exanple) by printing them one by one
+void printing_test(std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness){
+	std::cout << "Affichage des résultats" << std::endl;
+	std::cout << "==================================================="  << std::endl;
+	for (int ind = pop_size - 10; ind < pop_size; ind++) {
+		std::cout << "Individual " << ind << std::endl;
+		std::cout << "Permutation: " << std::endl;
+		for (int i = 0; i < NB_GENES; i++)
+			std::cout << permutation[ind*NB_GENES + i] << " ";
+		std::cout << std::endl;
+
+		std::cout << "X: " <<  std::endl;
+		for (int i = 0; i < NB_GENES; i++) {
+			for (int j = 0; j < NB_GENES; j++) {
+				std::cout << X[ind*NB_GENES*NB_GENES + i * NB_GENES + j] << " ";
+			}
+			std::cout << std::endl;
+		}
+		std::cout << "fitness: " << fitness[ind] << std::endl;
+		std::cout << "==================================================="  << std::endl;
+	}
+}
+
+// We test if the GPU produced fitness is the same as the one computed on an individual I using the function evaluate_trace
+void fitness_test(std::vector<double> F, std::vector<double> D, std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness){
+	std::cout << "Affichage des fitness" << std::endl;
+	std::cout << "==================================================="  << std::endl;
+	for (int ind = pop_size - 10; ind < pop_size; ind++) {
+		std::cout << "Individual " << ind << std::endl;
+		Individual I;
+		I.N = NB_GENES;
+		for (int i = 0; i < NB_GENES; i++)
+			I.permutation[i] = permutation[ind*NB_GENES + i];
+		for (int i = 0; i < NB_GENES * NB_GENES; i++)
+			I.X[i] = X[ind*NB_GENES*NB_GENES + i];
+		//I.fitness = fitness[j];
+		evaluate_trace(I, F, D);
+		std::cout << "GPU fitness: " << fitness[ind] << std::endl;
+		std::cout << "evaluated fitness: " << I.fitness << std::endl;
+		std::cout << "==================================================="  << std::endl;
+	}
+}
 int main(int argc, char* argv[])
 {
 	float time;
@@ -136,6 +176,10 @@ int main(int argc, char* argv[])
 			// Create a context and queue                                                                
 			// ------------------------------------------------------------------                        
 			cl::Buffer d_F, d_D, d_permutation, d_X, d_fitness;
+
+			int generation = 0; // Number of generations
+			int no_improvement = 0; // Number of generations since the last time Best was updated
+			int best_generation = generation; // In which generation did we find the Best solution?
 			try                                                                                          
 			{                                                                                            
 				cl_uint deviceIndex = 0;
@@ -185,117 +229,65 @@ int main(int argc, char* argv[])
 				// ------------------------------------------------------------------
 				// OpenCL initialization of the population
 				// ------------------------------------------------------------------
-				
+
 				// Defining gloabl dimmensions (global, size of the whole problem space) and local dimensions (local, size of one workgroup)
 				cl::NDRange global(pop_size*NB_GENES);
 				cl::NDRange local(NB_GENES);
 
 				// Create the compute kernel from the program
-				// // Don't forget the local and global sizes arguments
+				// Don't forget the local and global sizes arguments
 				generate_individual(cl::EnqueueArgs(queue, global, local), d_F, d_D, d_permutation, d_X, d_fitness);
-
 				queue.finish();
+
 
 				cl::copy(queue, d_X, X.begin(), X.end());
 				cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
+
+
+				/*
+				cl::Buffer d_permutation_parents, d_X_parents, d_fitness_parents;
+
+				// Stopping criteria:
+				// 1. We reach the maximum number of generations OR
+				// 2. There have been a certain number of generations we haven't updated the Best solution
+				while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
+				{
+					generation++;
+					no_improvement++;
+					std::cout<<"==============================\n";
+					std::cout<<"Generation: "<<generation<<"\n";
+
+					auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "generation");
+					// The parents
+					d_permutation_parents = cl::Buffer(context, permutation.begin(), permutation.end(), true);
+					d_X_parents = cl::Buffer(context, X.begin(), X.end(), true);
+					d_fitness_parents = cl::Buffer(context, fitness.begin(), fitness.end(), true);
+					
+					// The children
+					d_permutation = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * sizeof(int));
+					d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * NB_GENES * sizeof(double));
+					d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
+
+					cl::NDRange global(pop_size);
+					cl::NDRange local(1);
+					generation_kernel(cl::EnqueueArgs(queue, global, local), d_F, d_D, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
+					queue.finish();
+
+					cl::copy(queue, d_permutation, permutation.begin(), permutation.end());
+					cl::copy(queue, d_X, X.begin(), X.end());
+					cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
+				}
+				*/
+
 			}
 			catch (cl::Error err) {
 				std::cout << "Exception\n";
 				std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
 			}
 
-			/*
-			std::cout << "Affichage des résultats" << std::endl;
-			for(int ind = 0; ind < pop_size ; ind++){
-				 for (int i = 0; i < NB_GENES; i++)
-					std::cout << permutation[ind*NB_GENES + i] << " ";
-				 std::cout << std::endl;
-
-				 for (int i = 0; i < NB_GENES; i++) {
-					for (int j = 0; j < NB_GENES; j++) {
-						std::cout << X[ind*NB_GENES*NB_GENES + i * NB_GENES + j] << " ";
-					}
-					std::cout << std::endl;
-				 }
-				std::cout << "fitness: " << fitness[ind] << std::endl;
-			}
-			*/
-
-
-			// Vector population
-			std::vector<Individual> Population(pop_size);
-
-			for (int j = 0; j < pop_size; j++) {
-				Individual I;
-				I.N = NB_GENES;
-				for (int i = 0; i < NB_GENES; i++)
-					I.permutation[i] = permutation[j*NB_GENES + i];
-				for (int i = 0; i < NB_GENES * NB_GENES; i++)
-					I.X[i] = X[j*NB_GENES*NB_GENES + i];
-				//I.fitness = fitness[j];
-				evaluate_trace(I, F, D);
-				std::cout << "GPU fitness: " << fitness[j] << std::endl;
-				std::cout << "evaluated fitness: " << I.fitness << std::endl;
-				Population[j] = I;
-			}
-
-
-			int generation = 0; // Number of generations
-			int no_improvement = 0; // Number of generations since the last time Best was updated
-			int best_generation = generation; // In which generation did we find the Best solution?
-
-			// Stopping criteria:
-			// 1. We reach the maximum number of generations OR
-			// 2. There have been a certain number of generations we haven't updated the Best solution
-			while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
-			{
-				generation++;
-				no_improvement++;
-				std::cout<<"==============================\n";
-				std::cout<<"Generation: "<<generation<<"\n";
-
-				for(int i = 0; i < pop_size; i++){
-					double operator_probability;
-					operator_probability = rand()/RAND_MAX; // Uniformly select a random real in [0, 1]
-
-					// 1. Crossover with a 60% probability
-					if(operator_probability < 0.6){
-						// We randomly select an individual from the population so it becomes the second Parent; it has to be different from from the first individual so we randomly select from pop_size - 1 individual
-						int ind = rand()%(pop_size - 1);
-						if(i <= ind) ind++; // We ensure we do not pick the first Parent
-						Individual Offspring;
-						// There is a possibility to get rid of the Offspring individual by just using the result vecteur in crossover
-						crossover(Population[i], Population[ind], Offspring);
-						evaluate_trace(Offspring, F, D);
-						// We keep the best individual
-						if( Offspring.fitness <= Population[i].fitness)
-							copy(Population[i], Offspring);
-					}
-
-					operator_probability = rand()/RAND_MAX; // Uniformly select a random real in [0, 1]
-					// 2. Mutation with a 10% probability
-					if(operator_probability < 0.1)
-						mutate(Population[i]);
-
-					// 3. Transposition? Check that, wasn't implemented
-					evaluate_trace(Population[i], F, D);
-					// The infamous 2-opt heuristic to be applied on our individual
-					heuristic_2opt(Population[i], F, D);
-
-					// We update the Best solution if we find a better individual
-					if(Population[i].fitness < Best.fitness){
-						std::cout<<"---------------- A new Best found\n";
-						std::cout<<"Before: "<< Best.fitness;
-						copy(Best, Population[i]);
-						std::cout << " and after: " << Population[i].fitness << "\n";
-						best_generation = generation;
-						// We reset the no_improvement iterator
-						no_improvement = 0;
-					}
-
-				}
-			}
-
+			// We do some tests at the end to know if something went wrong
+			printing_test(permutation, X, fitness);
+			fitness_test(F, D, permutation, X, fitness);
 
 			t2= clock();
 			time= (float)(t2-t1)/CLOCKS_PER_SEC;
