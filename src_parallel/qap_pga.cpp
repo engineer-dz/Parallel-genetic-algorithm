@@ -237,14 +237,13 @@ int main(int argc, char* argv[])
 				// Create the compute kernel from the program
 				// Don't forget the local and global sizes arguments
 				generate_individual(cl::EnqueueArgs(queue, global, local), d_F, d_D, d_permutation, d_X, d_fitness);
-				queue.finish();
 
+				queue.finish();
 
 				cl::copy(queue, d_X, X.begin(), X.end());
 				cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
 
 
-				/*
 				cl::Buffer d_permutation_parents, d_X_parents, d_fitness_parents;
 
 				// Stopping criteria:
@@ -277,7 +276,6 @@ int main(int argc, char* argv[])
 					cl::copy(queue, d_X, X.begin(), X.end());
 					cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
 				}
-				*/
 
 			}
 			catch (cl::Error err) {
@@ -285,9 +283,11 @@ int main(int argc, char* argv[])
 				std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
 			}
 
-			// We do some tests at the end to know if something went wrong
-			printing_test(permutation, X, fitness);
-			fitness_test(F, D, permutation, X, fitness);
+
+
+				// We do some tests at the end to know if something went wrong
+				printing_test(permutation, X, fitness);
+				fitness_test(F, D, permutation, X, fitness);
 
 			t2= clock();
 			time= (float)(t2-t1)/CLOCKS_PER_SEC;
