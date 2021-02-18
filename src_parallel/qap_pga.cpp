@@ -244,7 +244,15 @@ int main(int argc, char* argv[])
 				cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
 
 
+
 				cl::Buffer d_permutation_parents, d_X_parents, d_fitness_parents;
+
+				// Load in kernel source, creating a program object for the context
+				cl::Program program2(context, util::loadProgram("generation.cl"), true);
+				// Get the command queue
+				cl::CommandQueue queue2(context);
+					
+				auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program2, "generation");
 
 				// Stopping criteria:
 				// 1. We reach the maximum number of generations OR
@@ -256,7 +264,6 @@ int main(int argc, char* argv[])
 					std::cout<<"==============================\n";
 					std::cout<<"Generation: "<<generation<<"\n";
 
-					auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program, "generation");
 					// The parents
 					d_permutation_parents = cl::Buffer(context, permutation.begin(), permutation.end(), true);
 					d_X_parents = cl::Buffer(context, X.begin(), X.end(), true);
@@ -268,13 +275,13 @@ int main(int argc, char* argv[])
 					d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
 
 					cl::NDRange global(pop_size);
-					cl::NDRange local(1);
-					generation_kernel(cl::EnqueueArgs(queue, global, local), d_F, d_D, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
-					queue.finish();
+					cl::NDRange local(1);	// Why 1?
+					generation_kernel(cl::EnqueueArgs(queue2, global, local), d_F, d_D, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
+					queue2.finish();
 
-					cl::copy(queue, d_permutation, permutation.begin(), permutation.end());
-					cl::copy(queue, d_X, X.begin(), X.end());
-					cl::copy(queue, d_fitness, fitness.begin(), fitness.end());
+					cl::copy(queue2, d_permutation, permutation.begin(), permutation.end());
+					cl::copy(queue2, d_X, X.begin(), X.end());
+					cl::copy(queue2, d_fitness, fitness.begin(), fitness.end());
 				}
 
 			}

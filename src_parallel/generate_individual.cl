@@ -80,7 +80,7 @@ __kernel void generate_individual(__global double *d_F, __global double *d_D, __
 	}
 
     // B = X*D
-    for (int i = 0; i < NB_GENES; i++) {
+	for (int i = 0; i < NB_GENES; i++) {
 		for (int j = 0; j < NB_GENES; j++) {
 			tmp = 0.0f;
 			for (int k = 0; k < NB_GENES; k++) {
@@ -91,12 +91,12 @@ __kernel void generate_individual(__global double *d_F, __global double *d_D, __
 	}
 
     // C = (X*D)transpose
-    for(int i = 0; i < NB_GENES; i++)
+  	for(int i = 0; i < NB_GENES; i++)
 		for(int j = 0; j < NB_GENES; j++)
 			C[i*NB_GENES + j] = B[j*NB_GENES + i];
 
     // B = A*C
-    for (int i = 0; i < NB_GENES; i++) {
+ 	for (int i = 0; i < NB_GENES; i++) {
 		for (int j = 0; j < NB_GENES; j++) {
 			tmp = 0.0f;
 			for (int k = 0; k < NB_GENES; k++) {
@@ -107,27 +107,10 @@ __kernel void generate_individual(__global double *d_F, __global double *d_D, __
 	}
 
     // fitness = trace(B)
-    double trace = 0;
-    for(int i = 0; i < NB_GENES; i++) {
-		trace += B[i*NB_GENES + i];
-    }
+ 	double trace = 0;
+  	for(int i = 0; i < NB_GENES; i++) {
+	  trace += B[i*NB_GENES + i];
+  	}
 
-    d_fitness[id_group] = trace;
-}
-
-// Kernel
-__kernel void generation(__global double* d_F, __global double* d_D, __global int* d_permutation_parents, __global double* d_X_parents, __global double* d_fitness_parents, __global int* d_permutation, __global double* d_X, __global double* d_fitness){
-    int id_global = get_global_id(0);
-    int id_local = get_local_id(0);
-    int id_group = get_group_id(0);
-
-    /*
-    for(int i = 0; i < NB_GENS; i++)
-	    d_permutation[id_group*NB_GENES + i] = d_permutation_parents[id_group*NB_GENES + i];
-
-    for(int i = 0; i < NB_GENS; i++)
-	    d_X[id_group*NB_GENES*NB_GENES + i*NB_GENES + d_permutation[id_group*NB_GENES + i]] = 1;
-	    */
-
-    d_fitness[id_global] = 1.0;
+  	d_fitness[id_group] = trace;
 }
