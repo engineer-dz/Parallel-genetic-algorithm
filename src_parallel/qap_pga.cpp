@@ -89,7 +89,7 @@ int open_file_soln(std::ifstream &file_soln, double &Value, int *Solution)
 void printing_test(std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness){
 	std::cout << "Affichage des résultats" << std::endl;
 	std::cout << "==================================================="  << std::endl;
-	for (int ind = pop_size - 10; ind < pop_size; ind++) {
+	for (int ind = 0; ind < pop_size; ind++) {
 		std::cout << "Individual " << ind << std::endl;
 		std::cout << "Permutation: " << std::endl;
 		for (int i = 0; i < NB_GENES; i++)
@@ -127,6 +127,7 @@ void fitness_test(std::vector<double> F, std::vector<double> D, std::vector<int>
 		std::cout << "==================================================="  << std::endl;
 	}
 }
+
 int main(int argc, char* argv[])
 {
 	float time;
@@ -164,12 +165,8 @@ int main(int argc, char* argv[])
 					permutation[i*NB_GENES + j] = j;
 				}
 				if (i < pop_size)
-					std::random_shuffle(permutation.begin() + i*NB_GENES, permutation.begin() + i*NB_GENES + NB_GENES - 1);
+					std::random_shuffle(permutation.begin() + i*NB_GENES, permutation.begin() + i*NB_GENES + NB_GENES);
 			}
-
-			// for (int i = 0; i < NB_GENES; i++)
-			// 	std::cout << permutation[i] << std::endl;
-
 
 			// We initialize the population
 			// ------------------------------------------------------------------                        
@@ -245,18 +242,19 @@ int main(int argc, char* argv[])
 
 
 
-				cl::Buffer d_permutation_parents, d_X_parents, d_fitness_parents;
+				cl::Buffer d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents;
 
 				// Load in kernel source, creating a program object for the context
 				cl::Program program2(context, util::loadProgram("generation.cl"), true);
 				// Get the command queue
 				cl::CommandQueue queue2(context);
 					
-				auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program2, "generation");
+				auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program2, "generation");
 
 				// Stopping criteria:
 				// 1. We reach the maximum number of generations OR
 				// 2. There have been a certain number of generations we haven't updated the Best solution
+				// The main loop
 				while( (generation < nb_gen) && (no_improvement < no_improvenment_max) )
 				{
 					generation++;
@@ -264,19 +262,27 @@ int main(int argc, char* argv[])
 					std::cout<<"==============================\n";
 					std::cout<<"Generation: "<<generation<<"\n";
 
+					// We create a seed for each workgroup; we hope to be able to update the seeds in the kernels to generate random numbers
+					std::vector<uint> operator_probability(pop_size);
+					for(int i = 0; i < pop_size; i ++)
+						operator_probability[i] = rand();
+					d_operator_probability = cl::Buffer(context, operator_probability.begin(), operator_probability.end(), true);
+
 					// The parents
 					d_permutation_parents = cl::Buffer(context, permutation.begin(), permutation.end(), true);
 					d_X_parents = cl::Buffer(context, X.begin(), X.end(), true);
 					d_fitness_parents = cl::Buffer(context, fitness.begin(), fitness.end(), true);
 					
 					// The children
-					d_permutation = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * sizeof(int));
+					d_permutation = cl::Buffer(context, CL_MEM_READ_WRITE, pop_size * NB_GENES * sizeof(int));
 					d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * NB_GENES * sizeof(double));
 					d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
 
-					cl::NDRange global(pop_size);
-					cl::NDRange local(1);	// Why 1?
-					generation_kernel(cl::EnqueueArgs(queue2, global, local), d_F, d_D, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
+
+					// We'll use the same dimensions
+					cl::NDRange global(pop_size*NB_GENES);
+					cl::NDRange local(NB_GENES);	
+					generation_kernel(cl::EnqueueArgs(queue2, global, local), d_F, d_D, d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
 					queue2.finish();
 
 					cl::copy(queue2, d_permutation, permutation.begin(), permutation.end());
@@ -325,7 +331,7 @@ int main(int argc, char* argv[])
 
 						evaluate_trace(Optimal, F, D);
 						std::cout<<"Known optimal solution:\n";
-						print_permutation(Best);
+						print_permutation(Optimal);
 						std::cout << "Optimal value (in the file): " << Optimal_Value << "\n";
 						std::cout << "Optimal value (found by the program): " << Best.fitness << "\n";
 					}
