@@ -248,3 +248,100 @@ void copy(Individual &Dest, const Individual &Source){
 	}
 	Dest.fitness = Source.fitness;
 }
+
+// Function to open a data file of the qaplib 
+// https://www.opt.math.tugraz.at/qaplib/inst.html
+// Flow will contain the flow matrix and Distance the distance matrix, 
+// the function returns N the size of the problem
+int open_file_dat(std::ifstream &file_dat, std::vector<double> &Flow, std::vector<double> &Distance)
+{
+	int N;
+	file_dat >> N;
+	// We empty the matrices
+	Flow.clear();
+	Flow.reserve(N*N);
+	Distance.clear();
+	Distance.reserve(N*N);
+
+	// The first matrix is the Flow matrix
+	for (int i = 0; i < N*N; i++){
+		double tmp;
+		file_dat >> tmp;
+		Flow.push_back(tmp);
+	}
+
+	// The second matrix is the Distance matrix
+	for (int i = 0; i < N*N; i++){
+		double tmp;
+		file_dat >> tmp;
+		Distance.push_back(tmp);
+	}
+
+	return N;
+}
+
+
+// Function to open a solution file of the qaplib 
+// https://www.opt.math.tugraz.at/qaplib/inst.html
+// Value contains the optimal value of the loss function and Solution will contain the optimal permutation 
+// the function returns N the size of the problem
+int open_file_soln(std::ifstream &file_soln, double &Value, int *Solution)
+{
+	int N;
+	file_soln >> N; 
+	file_soln >> Value;
+	// We empty the vector
+	for(int i = 0; i < N; i++){
+		int buffer;
+		file_soln >> buffer;
+		// We substract one so it can confornm to the C indexing 
+		Solution[i] = buffer - 1;
+	}
+
+	return N;
+}
+
+// We test if the GPU produced individuals are OK (not empty for example) by printing a sample of the population
+void printing_test(std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness, int sample_size){
+	std::cout << "Affichage des résultats" << std::endl;
+	std::cout << "==================================================="  << std::endl;
+	for (int s = 0; s < sample_size; s++) {
+		int ind = rand()%pop_size; 
+		std::cout << "Individual " << ind << std::endl;
+		std::cout << "Permutation: " << std::endl;
+		for (int i = 0; i < NB_GENES; i++)
+			std::cout << permutation[ind*NB_GENES + i] << " ";
+		std::cout << std::endl;
+
+		std::cout << "X: " <<  std::endl;
+		for (int i = 0; i < NB_GENES; i++) {
+			for (int j = 0; j < NB_GENES; j++) {
+				std::cout << X[ind*NB_GENES*NB_GENES + i * NB_GENES + j] << " ";
+			}
+			std::cout << std::endl;
+		}
+		std::cout << "fitness: " << fitness[ind] << std::endl;
+		std::cout << "==================================================="  << std::endl;
+	}
+}
+
+// We test if the GPU produced fitness is the same as the one computed on an individual I using the function evaluate_trace, tests on a random sample
+void fitness_test(std::vector<double> F, std::vector<double> D, std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness, int sample_size){
+	std::cout << "Affichage des fitness" << std::endl;
+	std::cout << "==================================================="  << std::endl;
+	for (int s = 0; s < sample_size; s++) {
+		int ind = rand()%pop_size;
+		std::cout << "Individual " << ind << std::endl;
+		Individual I;
+		I.N = NB_GENES;
+		for (int i = 0; i < NB_GENES; i++)
+			I.permutation[i] = permutation[ind*NB_GENES + i];
+		for (int i = 0; i < NB_GENES * NB_GENES; i++)
+			I.X[i] = X[ind*NB_GENES*NB_GENES + i];
+		//I.fitness = fitness[j];
+		evaluate_trace(I, F, D);
+		std::cout << "GPU fitness: " << fitness[ind] << std::endl;
+		std::cout << "evaluated fitness: " << I.fitness << std::endl;
+		std::cout << "==================================================="  << std::endl;
+	}
+}

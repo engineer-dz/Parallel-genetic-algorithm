@@ -1,7 +1,13 @@
 #ifndef _INDIVIDUAL_HPP_
 #define _INDIVIDUAL_HPP_
+// Fixed parameters: size of the population, the maximum number of generations (first stopping criterion),
+// the maximum number of generations where we didn't improve the Best solution (second stopping criterion)
+// and size of an individual (length of the permutation matrix; number of genes)
 
-#define NB_GENES 26
+#define pop_size 1000
+#define nb_gen 100
+#define no_improvenment_max 20
+#define NB_GENES 12
 
 #include <vector>
 #include <array>
@@ -33,6 +39,9 @@ void heuristic_2opt(Individual &I, const std::vector<double> &D, const std::vect
 void print_permutation(const Individual &I);
 void print_matrix(const Individual &I);
 void copy(Individual &Dest, const Individual &Source);
-
+void printing_test(std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness, int sample_size);
+void fitness_test(std::vector<double> F, std::vector<double> D, std::vector<int> permutation, std::vector<double> X, std::vector<double> fitness, int sample_size);
+int open_file_dat(std::ifstream &file_dat, std::vector<double> &Flow, std::vector<double> &Distance);
+int open_file_soln(std::ifstream &file_soln, double &Value, int *Solution);
 
 #endif

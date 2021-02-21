@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <array>
 #include <algorithm>
@@ -8,7 +7,6 @@
 #include <fstream>
 
 #include "matrix.hpp"
-
 
 // Compute the transpose of a matrix
 void mat_transpose(int N, const std::vector<double> &A, std::vector<double> &At)
