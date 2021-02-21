@@ -12,8 +12,6 @@
 
 #define NB_GENES 26
 
-
-
 // Functions
 uint xorshift32(uint seed)
 {
@@ -35,6 +33,7 @@ int rand_int(uint random, int n)
 // Kernel
 __kernel void generate_individual(__global double *d_F, __global double *d_D, __global int *d_permutation, __global double *d_X, __global double *d_fitness)
 {
+// int NB_GENES = get_NB_GENES(0); // size of a work group (number of items in a work group); number of genes
     // d_X initialized with 0
     // We assume d_permutation is initialized in the CPU
     int id_global = get_global_id(0);
@@ -114,5 +113,5 @@ __kernel void generate_individual(__global double *d_F, __global double *d_D, __
         trace += B[i*NB_GENES + i];
     }
 
-    d_fitness[id_group] = trace;
+    d_fitness[id_group] = NB_GENES;
 }

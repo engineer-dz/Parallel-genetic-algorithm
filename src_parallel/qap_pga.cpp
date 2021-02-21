@@ -6,7 +6,7 @@
 
 #define pop_size 10
 #define nb_gen 20
-#define no_improvenment_max 5
+#define no_improvenment_max 1
 
 #include "cl.hpp"
 
@@ -263,7 +263,7 @@ int main(int argc, char* argv[])
 					std::cout<<"Generation: "<<generation<<"\n";
 
 					// We create a seed for each workgroup; we hope to be able to update the seeds in the kernels to generate random numbers
-					std::vector<uint> operator_probability(pop_size);
+					std::vector<unsigned int> operator_probability(pop_size);
 					for(int i = 0; i < pop_size; i ++)
 						operator_probability[i] = rand();
 					d_operator_probability = cl::Buffer(context, operator_probability.begin(), operator_probability.end(), true);
@@ -277,7 +277,6 @@ int main(int argc, char* argv[])
 					d_permutation = cl::Buffer(context, CL_MEM_READ_WRITE, pop_size * NB_GENES * sizeof(int));
 					d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * NB_GENES * sizeof(double));
 					d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
-
 
 					// We'll use the same dimensions
 					cl::NDRange global(pop_size*NB_GENES);
@@ -295,8 +294,6 @@ int main(int argc, char* argv[])
 				std::cout << "Exception\n";
 				std::cerr << "ERROR: " << err.what() << "(" << err_code(err.err()) << ")" << std::endl;
 			}
-
-
 
 				// We do some tests at the end to know if something went wrong
 				printing_test(permutation, X, fitness);
