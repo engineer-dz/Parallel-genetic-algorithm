@@ -55,6 +55,7 @@ int main(int argc, char* argv[])
 				print_permutation(Best);
 				evaluate_trace(Best, F, D);
 				std::cout << "Fitness: " << Best.fitness << std::endl;
+				std::cout << "UINT_MAX: " << UINT32_MAX << std::endl;
 				// WARNING: Evaluation isn't included in other functions, so each time
 				// the Individual is altered (crossover, mutation, swap etc.) we should ensure
 				// the its fitness is updated afterwards

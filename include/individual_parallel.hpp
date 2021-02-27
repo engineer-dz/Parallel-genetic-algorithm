@@ -4,10 +4,10 @@
 // the maximum number of generations where we didn't improve the Best solution (second stopping criterion)
 // and size of an individual (length of the permutation matrix; number of genes)
 
-#define pop_size 100
+#define pop_size 1000
 #define nb_gen 250
 #define no_improvenment_max 25
-#define NB_GENES 12
+#define NB_GENES 26
 
 #include <vector>
 #include <array>
