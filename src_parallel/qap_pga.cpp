@@ -155,14 +155,14 @@ int main(int argc, char* argv[])
 					// OpenCL one generation of the genetic algorithm
 					// ------------------------------------------------------------------
 					
-					cl::Buffer d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents;
+					cl::Buffer d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutations_2_opt, d_best_2_opt;
 
 					// Load in kernel source, creating a program object for the context
 					cl::Program program2(context, util::loadProgram("generation.cl"), true);
 					// Get the command queue
 					cl::CommandQueue queue2(context);
 
-					auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program2, "generation");
+					auto generation_kernel = cl::make_kernel<cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer, cl::Buffer>(program2, "generation");
 
 					// Stopping criteria:
 					// 1. We reach the maximum number of generations OR
@@ -181,7 +181,6 @@ int main(int argc, char* argv[])
 							operator_probability[i] = rand();
 						d_operator_probability = cl::Buffer(context, operator_probability.begin(), operator_probability.end(), true);
 
-						
 						// ------------------------------------------------------------------
 						// Setup the buffers and write them into global memory
 						// ------------------------------------------------------------------
@@ -193,9 +192,12 @@ int main(int argc, char* argv[])
 						d_permutation = cl::Buffer(context, CL_MEM_READ_WRITE, pop_size * NB_GENES * sizeof(int));
 						d_X = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * NB_GENES * NB_GENES * sizeof(double));
 						d_fitness = cl::Buffer(context, CL_MEM_WRITE_ONLY, pop_size * sizeof(double));
+						// The memory that will be used for the 2-opt
+						d_permutations_2_opt = cl::Buffer(context, CL_MEM_READ_WRITE, pop_size * NB_GENES * NB_GENES * sizeof(int));
+						d_best_2_opt = cl::Buffer(context, CL_MEM_READ_WRITE, pop_size * NB_GENES * sizeof(double));
 
 						// We'll use the same dimensions and for some, same buffers as in the previous kernel
-						generation_kernel(cl::EnqueueArgs(queue2, global, local), d_F, d_D, d_A, d_B, d_C, d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness);
+						generation_kernel(cl::EnqueueArgs(queue2, global, local), d_F, d_D, d_A, d_B, d_C, d_operator_probability, d_permutation_parents, d_X_parents, d_fitness_parents, d_permutation, d_X, d_fitness, d_permutations_2_opt, d_best_2_opt);
 						queue2.finish();
 
 						cl::copy(queue2, d_permutation, permutation.begin(), permutation.end());
