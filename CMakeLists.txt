@@ -1,5 +1,3 @@
-#TODO: make a better cmake
-
 # Version CMake minimum pour les machines de l'Ensimag
 cmake_minimum_required (VERSION 2.8.11)
 
@@ -27,6 +25,6 @@ include_directories(include)
 
 
 # Ajoute répertoire contenant des définitions OpenCL étendues
-add_subdirectory(src)
+add_subdirectory(src_serial)
 add_subdirectory(src_parallel)
 add_subdirectory(data)
