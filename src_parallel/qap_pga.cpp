@@ -25,6 +25,8 @@
 #define DEVICE CL_DEVICE_TYPE_DEFAULT
 #endif
 
+#define NB_TESTS 100
+
 #include <err_code.h>
 
 
@@ -34,6 +36,15 @@ int main(int argc, char* argv[])
 	float time;
 	clock_t t1, t2;
 	t1 = clock();
+
+#ifdef TESTS
+	int nb_tests = NB_TESTS;
+	std::vector<float> exec_times(nb_tests, -1);
+	std::vector<double> errors(nb_tests, -1);
+
+	for (int index = 0; index < nb_tests; index++) {
+		t1 = clock();
+#endif
 
 	// At least one argument should be provided by the user, the .dat file
 	if(argc >= 2)
@@ -49,14 +60,6 @@ int main(int argc, char* argv[])
 
 			// We ensure that the dimension provided by the file matches the one set in the program (see individual_parallel.hpp)
 			if(N == NB_GENES) {
-#ifdef TESTS
-			int nb_tests = 10;
-			std::vector<float> exec_times(nb_tests);
-			std::vector<double> errors(nb_tests);
-
-			for (int index = 0; index < nb_tests; index++) {
-				t1 = clock();
-#endif
 				// We create the Best individual, the individual in whom we will keep the best found solution so far 
 #ifndef TESTS
 				std::cout << "Initialization of the Best individual:\n";
@@ -310,16 +313,6 @@ int main(int argc, char* argv[])
 					}
 				}
 
-#ifdef TESTS
-			}
-			float average_time = accumulate(exec_times.begin(), exec_times.end(), 0.0) / nb_tests;
-			double average_err = accumulate(errors.begin(), errors.end(), 0.0) / nb_tests;
-
-			std::cout << std::endl;
-			std::cout << "Number of iterations in the test: " << nb_tests << std::endl;
-			std::cout << "Average execution time: " << average_time << " sec" << std::endl;
-			std::cout << "Average relative error between known and found optimal fitness: " << average_err << std::endl;
-#endif
 			}
 			else{
 				std::cout<<"The dimension (size of a permutaion) provided by the instace file " << argv[1] << " doesn't match the one set in the program (NB_GENES), please check again.\n";
@@ -336,6 +329,16 @@ int main(int argc, char* argv[])
 		std::cout<<"./qap_ga.out file.dat\n";
 		return 1;
 	}
+#ifdef TESTS
+	}
+	float average_time = accumulate(exec_times.begin(), exec_times.end(), 0.0) / nb_tests;
+	double average_err = accumulate(errors.begin(), errors.end(), 0.0) / nb_tests;
+
+	std::cout << std::endl;
+	std::cout << "Number of iterations in the test: " << nb_tests << std::endl;
+	std::cout << "Average execution time: " << average_time << " sec" << std::endl;
+	std::cout << "Average relative error between known and found optimal fitness: " << average_err << std::endl;
+#endif
 
 	return 0;
 }

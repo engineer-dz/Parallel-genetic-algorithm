@@ -15,6 +15,7 @@
 #define pop_size 1000
 #define nb_gen 250
 #define no_improvenment_max 25
+#define NB_TESTS 100
 
 
 // Function to open a data file of the qaplib 
@@ -79,6 +80,14 @@ int main(int argc, char* argv[])
 	clock_t t1, t2;
 	t1 = clock();
 
+#ifdef TESTS
+	int nb_tests = NB_TESTS;
+	std::vector<float> exec_times(nb_tests, -1);
+	std::vector<double> errors(nb_tests, -1);
+
+	for (int index = 0; index < nb_tests; index++) {
+		t1 = clock();
+#endif
 	std::random_device r;
 	if(argc >= 2)
 	{
@@ -90,7 +99,6 @@ int main(int argc, char* argv[])
 			std::vector<double> D; // Distance matrix
 			int N = open_file_dat(file_dat, F, D);
 
-			// https://stackoverflow.com/questions/19657728/create-a-vector-of-instances-of-a-class-in-c
 			std::vector<Individual> Population(pop_size, Individual(N, r)); // The population 
 			std::vector<Individual> Parents(pop_size, Individual(N, r)); // The population 
 
@@ -100,9 +108,11 @@ int main(int argc, char* argv[])
 			// the its fitness is updated afterwards
 			Best.evaluate_trace(F, D);
 
+#ifndef TESTS
 			std::cout << "Initialization of the Best individual:\n";
 			Best.print_permutation();
 			std::cout << "Fitness: " << Best.fitness << std::endl;
+#endif
 			// We initialize the population
 			for(int i = 0; i < Population.size(); i++){
 				Individual buffer(N, r);
@@ -122,9 +132,10 @@ int main(int argc, char* argv[])
 			{
 				generation++;
 				no_improvement++;
+#ifndef TESTS
 				std::cout<<"==============================\n";
 				std::cout<<"Generation: "<<generation<<"\n";
-
+#endif
 				// We make a copy of the population; it will represent the parents and we need it so we do not change 
 				// the individuals/parents during the process
 				for(int i = 0; i < Population.size(); i++){
@@ -167,10 +178,14 @@ int main(int argc, char* argv[])
 
 					// We update the Best solution if we find a better individual
 					if(Population[i].fitness < Best.fitness){
+#ifndef TESTS
 						std::cout<<"---------------- A new Best found\n";
 						std::cout<<"Before: "<< Best.fitness;
+#endif
 						Best = Population[i];
+#ifndef TESTS
 						std::cout << " and after: " << Population[i].fitness << "\n";
+#endif
 						best_generation = generation;
 						// We reset the no_improvement iterator
 						no_improvement = 0;
@@ -181,12 +196,16 @@ int main(int argc, char* argv[])
 
 			t2= clock();
 			time= (float)(t2-t1)/CLOCKS_PER_SEC;
+#ifdef TESTS
+			exec_times[index] = time;
+#endif
 
+#ifndef TESTS
 			std::cout<<"======================================== Terminated ======================================\n";
 			std::cout<<"Best solution found:\n";
 			Best.print_permutation();
 			std::cout<<"Fitness: " << Best.fitness << "\nExecution time: " << time << " s\nGeneration: " << best_generation << "\n";
-
+#endif
 			if(argc >= 3){
 				std::ifstream file_soln;
 				file_soln.open(argv[2]);
@@ -194,13 +213,19 @@ int main(int argc, char* argv[])
 					std::vector<int> optimal_permutation;
 					double Optimal_Value;
 					open_file_soln(file_soln, Optimal_Value, optimal_permutation);
+#ifndef TESTS
 					std::cout<<"======================================= Known optimal solution ============================\n";
+#endif
 					Individual Optimal(optimal_permutation); // was used to test the evaluate_fitness function; the print_permutation is handy
 					Optimal.evaluate_trace(F, D);
+#ifndef TESTS
 					std::cout<<"Known optimal solution:\n";
 					Optimal.print_permutation();
 					std::cout << "Optimal value (in the file): " << Optimal_Value << "\n";
 					std::cout << "Best solution found by the genetic algorithm: " << Best.fitness << "\n";
+#else
+					errors[index] = abs(Best.fitness - Optimal_Value) / Optimal_Value;
+#endif
 				}
 			}
 
@@ -215,6 +240,15 @@ int main(int argc, char* argv[])
 		std::cout<<"./qap_ga.out file.dat\n";
 		return 1;
 	}
+#ifdef TESTS
+	}
+	float average_time = accumulate(exec_times.begin(), exec_times.end(), 0.0) / nb_tests;
+	double average_err = accumulate(errors.begin(), errors.end(), 0.0) / nb_tests;
+
+	std::cout << "Number of iterations in the test: " << nb_tests << std::endl;
+	std::cout << "Average execution time: " << average_time << " sec" << std::endl;
+	std::cout << "Average relative error between known and found optimal fitness: " << average_err << std::endl;
+#endif
 
 	return 0;
 }
