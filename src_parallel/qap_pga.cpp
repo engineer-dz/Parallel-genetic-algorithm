@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <ctime>
+#include <cmath>
 
 #include "individual_parallel.hpp"
 #include "matrix.hpp"
@@ -47,15 +48,29 @@ int main(int argc, char* argv[])
 			int N = open_file_dat(file_dat, F, D); // The dimension of the problem provided by the .dat file
 
 			// We ensure that the dimension provided by the file matches the one set in the program (see individual_parallel.hpp)
-			if(N == NB_GENES){
+			if(N == NB_GENES) {
+#ifdef TESTS
+			int nb_tests = 10;
+			std::vector<float> exec_times(nb_tests);
+			std::vector<double> errors(nb_tests);
+
+			for (int index = 0; index < nb_tests; index++) {
+				t1 = clock();
+#endif
 				// We create the Best individual, the individual in whom we will keep the best found solution so far 
+#ifndef TESTS
 				std::cout << "Initialization of the Best individual:\n";
+#endif
 				Individual Best;
 				generate_Individual(Best, N);; // The Best solution
+#ifndef TESTS
 				print_permutation(Best);
+#endif
 				evaluate_trace(Best, F, D);
+#ifndef TESTS
 				std::cout << "Fitness: " << Best.fitness << std::endl;
 				std::cout << "UINT_MAX: " << UINT32_MAX << std::endl;
+#endif
 				// WARNING: Evaluation isn't included in other functions, so each time
 				// the Individual is altered (crossover, mutation, swap etc.) we should ensure
 				// the its fitness is updated afterwards
@@ -85,7 +100,7 @@ int main(int argc, char* argv[])
 				int best_generation = generation; // In which generation did we find the Best solution?
 				try                                                                                          
 				{                                                                                            
-					cl_uint deviceIndex = 0;
+					cl_uint deviceIndex = 1;
 					parseArguments(argc, argv, &deviceIndex);
 
 					// Get list of devices
@@ -106,7 +121,12 @@ int main(int argc, char* argv[])
 
 					std::string name;
 					getDeviceName(device, name);
+#ifdef TESTS
+					if (index == 0)
+						std::cout << "\nUsing OpenCL device: " << name << "\n";
+#else
 					std::cout << "\nUsing OpenCL device: " << name << "\n";
+#endif
 
 					// Creation of the context with the chosen device
 					std::vector<cl::Device> chosen_device;
@@ -173,9 +193,10 @@ int main(int argc, char* argv[])
 					{
 						generation++;
 						no_improvement++;
+#ifndef TESTS
 						std::cout<<"==============================\n";
 						std::cout<<"Generation: "<<generation<<"\n";
-
+#endif
 						// We create a seed for each workgroup; we hope to be able to update the seeds in the kernels to generate random numbers
 						std::vector<unsigned int> operator_probability(pop_size);
 						for(int i = 0; i < pop_size; i ++)
@@ -206,8 +227,10 @@ int main(int argc, char* argv[])
 						for(int i = 0; i < pop_size; i++){
 							// We update the Best solution if we find a better individual
 							if(fitness[i] < Best.fitness){
+#ifndef TESTS
 								std::cout<<"---------------- A new Best found\n";
 								std::cout<<"Before: "<< Best.fitness;
+#endif
 								//We create a buffer individual that we will copy into Best 
 								int buffer_permutation[NB_GENES]; // We copy the permutation associated to the individual in a buffer
 								for(int j = 0; j < NB_GENES; j++)
@@ -216,8 +239,9 @@ int main(int argc, char* argv[])
 								generate_Individual_noRandom(I, buffer_permutation, NB_GENES);
 								evaluate_trace(I, F, D);
 								copy(Best, I);
-
+#ifndef TESTS
 								std::cout << " and after: " << fitness[i] << "\n";
+#endif
 								best_generation = generation;
 								// We reset the no_improvement iterator
 								no_improvement = 0;
@@ -232,16 +256,23 @@ int main(int argc, char* argv[])
 				}
 
 				// We do some tests at the end to know if something went wrong
+#ifndef TESTS
 				printing_test(permutation, X, fitness, 10);
 				fitness_test(F, D, permutation, X, fitness, 10);
+#endif
 
 				t2= clock();
 				time= (float)(t2-t1)/CLOCKS_PER_SEC;
+#ifdef TESTS
+				exec_times[index] = time;
+#endif
 
+#ifndef TESTS
 				std::cout<<"======================================== Terminated ======================================\n";
 				std::cout<<"Best solution found:\n";
 				print_permutation(Best);
 				std::cout<<"Fitness: " << Best.fitness << "\nExecution time: " << time << " s\nGeneration: " << best_generation << "\n";
+#endif
 
 				// We check if a solution file has been specified by the user
 				if(argc >= 3){
@@ -255,7 +286,9 @@ int main(int argc, char* argv[])
 							std::cout<<"The size of the problem in the solution file is different from the data file, you specified the wrong solution file."<<std::endl;
 						}
 						else{
+#ifndef TESTS
 							std::cout<<"======================================= Known optimal solution ============================\n";
+#endif
 							Individual Optimal;
 							Optimal.N = Nsol;
 							for(int i = 0; i < Optimal.N; i++)
@@ -263,20 +296,35 @@ int main(int argc, char* argv[])
 							construct_matrix(Optimal);
 
 							evaluate_trace(Optimal, F, D);
+#ifndef TESTS
 							std::cout<<"Known optimal solution:\n";
 							print_permutation(Optimal);
 							std::cout << "Optimal value (in the file): " << Optimal_Value << "\n";
 							std::cout << "Optimal value (found by the program): " << Best.fitness << "\n";
+#else
+							errors[index] = abs(Best.fitness - Optimal_Value) / Optimal_Value;
+#endif
+
 						}
 						std::free(optimal_permutation);
 					}
 				}
 
+#ifdef TESTS
+			}
+			float average_time = accumulate(exec_times.begin(), exec_times.end(), 0.0) / nb_tests;
+			double average_err = accumulate(errors.begin(), errors.end(), 0.0) / nb_tests;
 
+			std::cout << std::endl;
+			std::cout << "Number of iterations in the test: " << nb_tests << std::endl;
+			std::cout << "Average execution time: " << average_time << " sec" << std::endl;
+			std::cout << "Average relative error between known and found optimal fitness: " << average_err << std::endl;
+#endif
 			}
 			else{
 				std::cout<<"The dimension (size of a permutaion) provided by the instace file " << argv[1] << " doesn't match the one set in the program (NB_GENES), please check again.\n";
 			}
+
 		}
 		else{
 			std::cout<<"Problem while opening the data file " << argv[1] << ".\n";
